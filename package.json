@@ -1,0 +1,24 @@
+{
+  "name": "bbb-downloader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "puppeteer": "^10.0.0",
+    "puppeteer-screen-recorder": "^1.1.11"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agmitron/bbb-downloader.git"
+  },
+  "author": "Alexey Gmitron",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/agmitron/bbb-downloader/issues"
+  },
+  "homepage": "https://github.com/agmitron/bbb-downloader#readme"
+}
