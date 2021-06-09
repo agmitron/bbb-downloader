@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "download": "^8.0.0",
+    "express": "^4.17.1",
     "fluent-ffmpeg": "^2.1.2",
     "puppeteer": "^10.0.0",
     "puppeteer-screen-recorder": "^1.1.11",

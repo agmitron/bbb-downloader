@@ -1,57 +1,143 @@
 const fs = require('fs')
+const path = require('path')
 const puppeteer = require('puppeteer')
 const download = require('download')
 const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder')
 const FFmpeg = require('fluent-ffmpeg')
+const { ffprobe } = require('fluent-ffmpeg')
+const express = require('express')
+const app = express()
+
+const port = 3000
+app.listen(port, () => console.log(`App started on port ${port}`))
+
+const PROJECTS_DIR = 'projects'
 
 const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 
-// TODO: concat a video and an audio streams
+// TODO: Refactor
+// TODO: Database
+// TODO: UI 
 
-const start = async () => {
+app.get('/', async (req, res) => {
+    const { bbb_url } = req.query
+
+    if (!bbb_url) {
+        return res.status(500).json({
+            message: 'bbb_url is required in query parameters'
+        })
+    }
+
+    res.write(await start(bbb_url), 'binary')
+
+    return res.status(200).end()
+})
+
+const start = async (bbb_url) => {
     try {
         const browser = await puppeteer.launch()
-        const browserWSEndpoint = browser.wsEndpoint();
 
+        // Check if no in db
         const page = await browser.newPage()
-        await page.goto('https://vconf.tomtit-tomsk.ru/playback/presentation/2.3/4293a04256d7a188dd77b1f709369ec0679c9832-1622267043704')
-        await sleep(5000)
-        await page.screenshot({ path: 'screenshot.png' })
-        await page.setViewport({ width: 1920, height: 1080 })
-        const recorder = new PuppeteerScreenRecorder(page)
-        await recorder.start('video.mp4');
-        const playButtonSelector = '.vjs-control-bar > .vjs-play-control.vjs-control.vjs-button'
-        await page.waitForSelector(playButtonSelector)
-        await page.click(playButtonSelector)
-        const fileSrc = await page.evaluate(() => {
-            const $audio = document.querySelector('.video-wrapper .vjs-tech')
-            return $audio.src
-        })
+        await openBBB(page, bbb_url)
+        await startWebinarVideo(page)
 
-        await sleep(10000)
+        const projectId = getLastPart(bbb_url)
 
-        await download(fileSrc, 'dist')
+        const outputDir = await createOutputDir(projectId)
 
+        await recordScreen(outputDir, page)
 
+        const mergedVideoPath = await mergeVideoAndAudio(outputDir)
 
-        await recorder.stop()
-
-        const filename = fileSrc.split('/')[fileSrc.split('/').length - 1]
-
-        // convert webm to audio 
-
-        FFmpeg('video.mp4')
-            .addInput('dist/webcams.webm')
-            .outputOptions('-c copy')
-            .saveToFile('output.mkv')
-            .on('error', err => console.error('Merging error: ', err))
-            .on('end', () => console.log('Merging completed'))
-
-
+        return fs.promises.readFile(mergedVideoPath)
     } catch (e) {
         console.error(e)
     }
 }
 
+async function recordScreen(outputDir, page, callbackDuringRecording = async () => {}) {
+    const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
+    const duration = Math.ceil(await getDuration(audioLocalSrc) * 1000)
 
-start()
+    const recorder = new PuppeteerScreenRecorder(page)
+    await recorder.start(`${outputDir}/video.mp4`);
+
+    await callbackDuringRecording()
+
+    await sleep(300000)
+    await recorder.stop()
+}
+
+async function openBBB(page, bbb_url) {
+    await page.goto(bbb_url)
+    await page.setViewport({ width: 1920, height: 1080 })
+}
+
+async function startWebinarVideo(page) {
+    const playButtonSelector = '.vjs-control-bar > .vjs-play-control.vjs-control.vjs-button'
+    await page.waitForSelector(playButtonSelector)
+    await page.click(playButtonSelector)
+}
+
+async function getAudioRemoteSrc(page) {
+    return await page.evaluate(() => {
+        const $audio = document.querySelector('.video-wrapper .vjs-tech')
+        return $audio.src
+    })
+}
+
+async function downloadAudio(audioUrl, output) {
+    const filename = 'audio.webm'
+    await download(audioUrl, output, { filename })
+    return `${output}/${filename}`
+}
+
+async function createOutputDir(projectId, base = PROJECTS_DIR) {
+    const dirPath = `${base}/${projectId}`
+
+    if (fs.existsSync(dirPath)) {
+        console.log('Project has already existed')
+        return dirPath
+    }
+
+    await fs.promises.mkdir(dirPath, { recursive: true })
+    return dirPath
+}
+
+function getLastPart(fullString) {
+    const parts = fullString.split('/')
+
+    return parts[parts.length - 1]
+}
+
+function getDuration(fileSrc) {
+    return new Promise((resolve, reject) => {
+        ffprobe(fileSrc, (err, data) => {
+            if (err) {
+                return reject(err)
+            }
+
+            return resolve(data.format.duration)
+        })
+    })
+}
+
+function mergeVideoAndAudio(outputDir, videoSrc = `${outputDir}/video.mp4`, audioSrc = `${outputDir}/audio.webm`, outputPath = `${outputDir}/output.mkv`) {
+    console.log({videoSrc, audioSrc, outputPath})
+    return new Promise((resolve, reject) => {
+        FFmpeg(videoSrc)
+            .addInput(audioSrc)
+            .outputOptions('-c copy')
+            .saveToFile(outputPath)
+            .on('error', err => {
+                console.error('Merging error: ', err)
+                return reject(err)
+            })
+            .on('end', () => {
+                console.log('Merging completed')
+                return resolve(outputPath)
+            })
+    })
+}
+// start()
