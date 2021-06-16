@@ -2,27 +2,22 @@
   "manifest_version": 2,
   "name": "BigBlueButton downloader",
   "version": "0.0.5",
-  "browser_action": {
-    "default_popup": "index.html"
-  },
   "content_scripts": [
     {
       "matches": [
         "https://vconf.tomtit-tomsk.ru/playback/presentation/*"
       ],
       "js": [
+        "materialize.min.js",
         "index.js"
       ]
     }
   ],
   "permissions": [
-    "activeTab"
-  ],
-  "background": {
-    "scripts": [
-      "background.js"
-    ],
-    "persistent": false
-  }
+    "activeTab",
+    "tabs",
+    "notifications",
+    "http://*/",
+    "https://*/"
+  ]
 }
-

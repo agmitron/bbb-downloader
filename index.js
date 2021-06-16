@@ -19,143 +19,159 @@ const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 app.use(cors())
 
 app.get('/', async (req, res) => {
-    const { bbb_url } = req.query
+  const { bbb_url } = req.query
 
-    if (!bbb_url) {
-        return res.status(500).json({
-            message: 'bbb_url is required in query parameters'
-        })
-    }
+  if (!bbb_url) {
+    return res.status(500).json({
+      message: 'bbb_url is required in query parameters'
+    })
+  }
 
-    res.write(await start(bbb_url), 'binary')
+  if (checkIsExisted(bbb_url)) {
+    return res.download(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
+  }
 
-    return res.status(200).end()
+  await start(bbb_url)
+
+  return res.status(200).end()
 })
 
 app.get('/check', (req, res) => {
-    const { bbb_url } = req.query
+  const { bbb_url } = req.query
 
-    if (!bbb_url) {
-        return res.status(500).json({
-            message: 'bbb_url is required in query parameters'
-        })
-    }
-
-    res.status(200).json({
-        result: checkIsExisted(bbb_url)
+  if (!bbb_url) {
+    return res.status(500).json({
+      message: 'bbb_url is required in query parameters'
     })
+  }
+
+
+  const existed = checkIsExisted(bbb_url)
+  const onlyDirExisted = fs.existsSync(path.join(PROJECTS_DIR, bbb_url)) && !fs.existsSync(path.join(PROJECTS_DIR, bbb_url, finalFileName))
+
+  if (onlyDirExisted) {
+    return res.status(200).json({
+      result: existed,
+      status: 'The recording is still preparing.'
+    })
+  }
+
+  return res.status(200).json({
+    result: existed,
+    status: 'The recording is ready to download.'
+  })
 })
 
 function checkIsExisted(bbb_url) {
-    const p = path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
-    return fs.existsSync(p)
+  const p = path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
+  return fs.existsSync(p)
 }
 
 const start = async (bbb_url) => {
-    try {
-        const browser = await puppeteer.launch()
+  try {
+    const browser = await puppeteer.launch()
 
-        // Check if no in db
-        const page = await browser.newPage()
-        await openBBB(page, bbb_url)
-        await startWebinarVideo(page)
+    // Check if no in db
+    const page = await browser.newPage()
+    await openBBB(page, bbb_url)
+    await startWebinarVideo(page)
 
-        const projectId = getLastPart(bbb_url)
+    const projectId = getLastPart(bbb_url)
 
-        const outputDir = await createOutputDir(projectId)
+    const outputDir = await createOutputDir(projectId)
 
-        await recordScreen(outputDir, page)
+    await recordScreen(outputDir, page)
 
-        const mergedVideoPath = await mergeVideoAndAudio(outputDir)
+    const mergedVideoPath = await mergeVideoAndAudio(outputDir)
 
-        return fs.promises.readFile(mergedVideoPath)
-    } catch (e) {
-        console.error(e)
-    }
+    return fs.promises.readFile(mergedVideoPath)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
-async function recordScreen(outputDir, page, callbackDuringRecording = async () => {}) {
-    const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
-    const duration = Math.ceil(await getDuration(audioLocalSrc) * 1000)
+async function recordScreen(outputDir, page, callbackDuringRecording = async () => { }) {
+  const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
+  const duration = Math.ceil(await getDuration(audioLocalSrc) * 1000)
 
-    const recorder = new PuppeteerScreenRecorder(page)
-    await recorder.start(`${outputDir}/video.mp4`);
+  const recorder = new PuppeteerScreenRecorder(page)
+  await recorder.start(`${outputDir}/video.mp4`);
 
-    await callbackDuringRecording()
+  await callbackDuringRecording()
 
-    await sleep(300000)
-    await recorder.stop()
+  await sleep(duration)
+  await recorder.stop()
 }
 
 async function openBBB(page, bbb_url) {
-    await page.goto(bbb_url)
-    await page.setViewport({ width: 1920, height: 1080 })
+  await page.goto(bbb_url)
+  await page.setViewport({ width: 1920, height: 1080 })
 }
 
 async function startWebinarVideo(page) {
-    const playButtonSelector = '.vjs-control-bar > .vjs-play-control.vjs-control.vjs-button'
-    await page.waitForSelector(playButtonSelector)
-    await page.click(playButtonSelector)
+  const playButtonSelector = '.vjs-control-bar > .vjs-play-control.vjs-control.vjs-button'
+  await page.waitForSelector(playButtonSelector)
+  await page.click(playButtonSelector)
 }
 
 async function getAudioRemoteSrc(page) {
-    return await page.evaluate(() => {
-        const $audio = document.querySelector('.video-wrapper .vjs-tech')
-        return $audio.src
-    })
+  return await page.evaluate(() => {
+    const $audio = document.querySelector('.video-wrapper .vjs-tech')
+    return $audio.src
+  })
 }
 
 async function downloadAudio(audioUrl, output) {
-    const filename = 'audio.webm'
-    await download(audioUrl, output, { filename })
-    return `${output}/${filename}`
+  const filename = 'audio.webm'
+  await download(audioUrl, output, { filename })
+  return `${output}/${filename}`
 }
 
 async function createOutputDir(projectId, base = PROJECTS_DIR) {
-    const dirPath = `${base}/${projectId}`
+  const dirPath = `${base}/${projectId}`
 
-    if (fs.existsSync(dirPath)) {
-        console.log('Project has already existed')
-        return dirPath
-    }
-
-    await fs.promises.mkdir(dirPath, { recursive: true })
+  if (fs.existsSync(dirPath)) {
+    console.log('Project has already existed')
     return dirPath
+  }
+
+  await fs.promises.mkdir(dirPath, { recursive: true })
+  return dirPath
 }
 
 function getLastPart(fullString) {
-    const parts = fullString.split('/')
+  const parts = fullString.split('/')
 
-    return parts[parts.length - 1]
+  return parts[parts.length - 1]
 }
 
 function getDuration(fileSrc) {
-    return new Promise((resolve, reject) => {
-        ffprobe(fileSrc, (err, data) => {
-            if (err) {
-                return reject(err)
-            }
+  return new Promise((resolve, reject) => {
+    ffprobe(fileSrc, (err, data) => {
+      if (err) {
+        return reject(err)
+      }
 
-            return resolve(data.format.duration)
-        })
+      return resolve(data.format.duration)
     })
+  })
 }
 
 function mergeVideoAndAudio(outputDir, videoSrc = `${outputDir}/video.mp4`, audioSrc = `${outputDir}/audio.webm`, outputPath = `${outputDir}/${finalFileName}`) {
-    console.log({videoSrc, audioSrc, outputPath})
-    return new Promise((resolve, reject) => {
-        FFmpeg(videoSrc)
-            .addInput(audioSrc)
-            .outputOptions('-c copy')
-            .saveToFile(outputPath)
-            .on('error', err => {
-                console.error('Merging error: ', err)
-                return reject(err)
-            })
-            .on('end', () => {
-                console.log('Merging completed')
-                return resolve(outputPath)
-            })
-    })
+  console.log({ videoSrc, audioSrc, outputPath })
+  return new Promise((resolve, reject) => {
+    FFmpeg(videoSrc)
+      .addInput(audioSrc)
+      .outputOptions('-c copy')
+      .saveToFile(outputPath)
+      .on('error', err => {
+        console.error('Merging error: ', err)
+        return reject(err)
+      })
+      .on('end', () => {
+        console.log('Merging completed')
+        return resolve(outputPath)
+      })
+  })
 }
 // start()
