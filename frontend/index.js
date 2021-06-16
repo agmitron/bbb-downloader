@@ -17,7 +17,10 @@ const html = `
     <div class="modal-content">
       <h4>Запись отсутствует</h4>
       <p>Вы можете поставить запись на обработку, чтобы подготовить запись вебинара. Это может занять несколько часов.</p>
-      <a class="waves-effect waves-light btn" style="display: flex;" target="_blank" href="${HOST}?bbb_url=${window.location.href}"><i class="material-icons">attachment</i>Поставить на обработку</a>
+      <a class="waves-effect waves-light btn" style="display: flex;">
+        <i class="material-icons">attachment</i>
+        Поставить на обработку
+      </a>
     </div>
     <div class="modal-footer">
       <a href="#!" class="modal-close waves-effect waves-green btn-flat">Закрыть</a>
@@ -35,23 +38,36 @@ const html = `
 document.body.insertAdjacentHTML('afterbegin', html)
 
 const elems = document.querySelectorAll('.modal');
-const instances = M.Modal.init(elems, {});
+const instances = M.Modal.init(elems, {
+  onOpenStart() {
+    fetch(`${HOST}/check?bbb_url=${window.location.href}`)
+      .then(res => res.json())
+      .then(({ result: existed }) => {
+        const $downloadModal = document.getElementById('downloadModal')
+        const $btn = $downloadModal.querySelector('a.btn')
+        if (existed) {
+          $downloadModal.querySelector('h4').innerText = 'Запись есть в системе'
+          $downloadModal.querySelector('p').innerText = 'Вы можете скачать запись.'
+          $btn.innerHTML = `
+        <i class="material-icons">file_download</i>Скачать
+      `
+          $btn.addEventListener('click', e => {
+            e.preventDefault()
+            fetch(`${HOST}?bbb_url=${window.location.href}`)
+              .then(res => res.json())
+              .then(console.log)
+              .catch(console.error)
+          })
+        } else {
+
+        }
+
+        console.log({ existed })
+      })
+      .catch(console.error)
+
+  }
+});
 
 console.log({ instances })
 
-fetch(`${HOST}/check?bbb_url=${window.location.href}`)
-  .then(res => res.json())
-  .then(({ result: existed }) => {
-    const $downloadModal = document.getElementById('downloadModal')
-
-    if (existed) {
-      $downloadModal.querySelector('h4').innerText = 'Запись есть в системе'
-      $downloadModal.querySelector('p').innerText = 'Вы можете скачать запись.'
-      $downloadModal.querySelector('a.btn').innerHTML = `
-        <i class="material-icons">file_download</i>Скачать
-      `
-    }
-
-    console.log({ existed })
-  })
-  .catch(console.error)

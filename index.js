@@ -19,21 +19,36 @@ const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 app.use(cors())
 
 app.get('/', async (req, res) => {
-  const { bbb_url } = req.query
+  try {
+    const { bbb_url } = req.query
 
-  if (!bbb_url) {
+    if (!bbb_url) {
+      return res.status(500).json({
+        message: 'bbb_url is required in query parameters'
+      })
+    }
+
+    if (checkIsExisted(bbb_url)) {
+      return res.download(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
+    }
+
+    if (checkIsOnlyDirExisted(bbb_url)) {
+      return res.status(200).json({
+        message: 'The recording is still preparing.'
+      })
+    }
+
+    start(bbb_url)
+
+    return res.status(200).json({
+      message: 'The recording has started preparing.'
+    })
+  } catch (error) {
+    console.error(error)
     return res.status(500).json({
-      message: 'bbb_url is required in query parameters'
+      error
     })
   }
-
-  if (checkIsExisted(bbb_url)) {
-    return res.download(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
-  }
-
-  await start(bbb_url)
-
-  return res.status(200).end()
 })
 
 app.get('/check', (req, res) => {
@@ -45,11 +60,9 @@ app.get('/check', (req, res) => {
     })
   }
 
-
   const existed = checkIsExisted(bbb_url)
-  const onlyDirExisted = fs.existsSync(path.join(PROJECTS_DIR, bbb_url)) && !fs.existsSync(path.join(PROJECTS_DIR, bbb_url, finalFileName))
 
-  if (onlyDirExisted) {
+  if (checkIsOnlyDirExisted(bbb_url)) {
     return res.status(200).json({
       result: existed,
       status: 'The recording is still preparing.'
@@ -58,9 +71,16 @@ app.get('/check', (req, res) => {
 
   return res.status(200).json({
     result: existed,
-    status: 'The recording is ready to download.'
+    status: existed
+      ? 'The recording is ready to download.'
+      : 'You need to prepare video before downloading. It may take several hours.'
   })
 })
+
+function checkIsOnlyDirExisted(bbb_url) {
+  return fs.existsSync(path.join(PROJECTS_DIR, getLastPart(bbb_url)))
+    && !fs.existsSync(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
+}
 
 function checkIsExisted(bbb_url) {
   const p = path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
