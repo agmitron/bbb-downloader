@@ -65,15 +65,15 @@ app.get('/check', (req, res) => {
   if (checkIsOnlyDirExisted(bbb_url)) {
     return res.status(200).json({
       result: existed,
-      status: 'The recording is still preparing.'
+      status: 'PREPARING'
     })
   }
 
   return res.status(200).json({
     result: existed,
     status: existed
-      ? 'The recording is ready to download.'
-      : 'You need to prepare video before downloading. It may take several hours.'
+      ? 'READY'
+      : 'ABSENT'
   })
 })
 

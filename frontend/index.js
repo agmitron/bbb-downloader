@@ -42,7 +42,7 @@ const instances = M.Modal.init(elems, {
   onOpenStart() {
     fetch(`${HOST}/check?bbb_url=${window.location.href}`)
       .then(res => res.json())
-      .then(({ result: existed }) => {
+      .then(({ result: existed, status }) => {
         const $downloadModal = document.getElementById('downloadModal')
         const $btn = $downloadModal.querySelector('a.btn')
         if (existed) {
@@ -51,18 +51,25 @@ const instances = M.Modal.init(elems, {
           $btn.innerHTML = `
         <i class="material-icons">file_download</i>Скачать
       `
-          $btn.addEventListener('click', e => {
-            e.preventDefault()
-            fetch(`${HOST}?bbb_url=${window.location.href}`)
-              .then(res => res.json())
-              .then(console.log)
-              .catch(console.error)
-          })
+        } else if (status === 'PREPARING') {
+          $downloadModal.querySelector('h4').innerText = 'Запись обрабатывается'
+          $downloadModal.querySelector('p').innerText = 'Запись уже обрабатывается и скоро будет доступна для скачивания. Вернитесь сюда чуточку позже.'
+          $btn.hidden = true;
         } else {
-
+          $downloadModal.querySelector('h4').innerText = 'Записи пока нет в системе'
+          $downloadModal.querySelector('p').innerText = 'Вы не можете скачать запись, поскольку её ещё пока нет в нашей базе. Вы можете поставить запись на обработку. Обработка занимает примерно столько же, сколько длится сам вебинар.'
+          $btn.innerHTML = `
+            <i class="material-icons">file_download</i>Поставить на обработку
+          `
         }
 
-        console.log({ existed })
+        $btn.addEventListener('click', e => {
+          e.preventDefault()
+          fetch(`${HOST}?bbb_url=${window.location.href}`)
+            .then(res => res.json())
+            .then(console.log)
+            .catch(console.error)
+        })
       })
       .catch(console.error)
 
