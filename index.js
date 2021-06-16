@@ -131,7 +131,7 @@ async function createOutputDir(projectId, base = PROJECTS_DIR) {
   const dirPath = `${base}/${projectId}`
 
   if (fs.existsSync(dirPath)) {
-    console.log('Project has already existed')
+    console.log('Project folder has already existed')
     return dirPath
   }
 
