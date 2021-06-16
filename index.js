@@ -7,17 +7,16 @@ const FFmpeg = require('fluent-ffmpeg')
 const { ffprobe } = require('fluent-ffmpeg')
 const express = require('express')
 const app = express()
-
+const cors = require('cors')
 const port = 3000
 app.listen(port, () => console.log(`App started on port ${port}`))
 
 const PROJECTS_DIR = 'projects'
+const finalFileName = 'output.mkv'
 
 const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 
-// TODO: Refactor
-// TODO: Database
-// TODO: UI 
+app.use(cors())
 
 app.get('/', async (req, res) => {
     const { bbb_url } = req.query
@@ -32,6 +31,25 @@ app.get('/', async (req, res) => {
 
     return res.status(200).end()
 })
+
+app.get('/check', (req, res) => {
+    const { bbb_url } = req.query
+
+    if (!bbb_url) {
+        return res.status(500).json({
+            message: 'bbb_url is required in query parameters'
+        })
+    }
+
+    res.status(200).json({
+        result: checkIsExisted(bbb_url)
+    })
+})
+
+function checkIsExisted(bbb_url) {
+    const p = path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
+    return fs.existsSync(p)
+}
 
 const start = async (bbb_url) => {
     try {
@@ -123,7 +141,7 @@ function getDuration(fileSrc) {
     })
 }
 
-function mergeVideoAndAudio(outputDir, videoSrc = `${outputDir}/video.mp4`, audioSrc = `${outputDir}/audio.webm`, outputPath = `${outputDir}/output.mkv`) {
+function mergeVideoAndAudio(outputDir, videoSrc = `${outputDir}/video.mp4`, audioSrc = `${outputDir}/audio.webm`, outputPath = `${outputDir}/${finalFileName}`) {
     console.log({videoSrc, audioSrc, outputPath})
     return new Promise((resolve, reject) => {
         FFmpeg(videoSrc)
