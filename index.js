@@ -28,20 +28,28 @@ app.get('/', async (req, res) => {
       })
     }
 
+    if (!validateURL(bbb_url)) {
+      return res.status(500).json({
+        message: 'bbb_url must be like <domain>/playback/presentation/<v>/<id>'
+      })
+    }
+
     if (checkIsExisted(bbb_url)) {
       return res.download(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
     }
 
     if (checkIsOnlyDirExisted(bbb_url)) {
       return res.status(200).json({
-        message: 'The recording is still preparing.'
+        message: 'The recording is still preparing.',
+        status: 'PREPARING'
       })
     }
 
     start(bbb_url)
 
     return res.status(200).json({
-      message: 'The recording has started preparing.'
+      message: 'The recording has started preparing.',
+      status: 'PREPARING'
     })
   } catch (error) {
     console.error(error)
@@ -50,6 +58,8 @@ app.get('/', async (req, res) => {
     })
   }
 })
+
+const validateURL = url => url.contains('playback/presentation/')
 
 app.get('/check', (req, res) => {
   const { bbb_url } = req.query
@@ -117,10 +127,18 @@ async function recordScreen(outputDir, page, callbackDuringRecording = async () 
   const recorder = new PuppeteerScreenRecorder(page)
   await recorder.start(`${outputDir}/video.mp4`);
 
+  let counter = 0;
+  const interval = setInterval(() => {
+    counter += 10;
+    console.log(`${outputDir} is running for ${counter} seconds`)
+  }, 10 * 1000)
+
   await callbackDuringRecording()
 
   await sleep(duration)
   await recorder.stop()
+
+  clearInterval(interval)
 }
 
 async function openBBB(page, bbb_url) {

@@ -12,12 +12,5 @@
         "index.js"
       ]
     }
-  ],
-  "permissions": [
-    "activeTab",
-    "tabs",
-    "notifications",
-    "http://*/",
-    "https://*/"
   ]
 }

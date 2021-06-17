@@ -10,7 +10,7 @@ head.insertAdjacentHTML(`beforeend`, `
 
 const html = `
   <!-- Modal Trigger -->
-  <a class="waves-effect waves-light btn modal-trigger download-button" href="#downloadModal">Modal</a>
+  <a class="waves-effect waves-light btn modal-trigger download-button blue darken-3" href="#downloadModal"><i class="material-icons">download</i></a>
 
   <!-- Modal Structure -->
   <div id="downloadModal" class="modal">
@@ -30,12 +30,16 @@ const html = `
   <style>
     .download-button {
       position: absolute;
-      z-index: 9999;
+      z-index: 1;
+      left: 15px;
+      top: 15px;
     }
   </style>
 `
 
 document.body.insertAdjacentHTML('afterbegin', html)
+
+const PREPARING = 'PREPARING'
 
 const elems = document.querySelectorAll('.modal');
 const instances = M.Modal.init(elems, {
@@ -45,29 +49,49 @@ const instances = M.Modal.init(elems, {
       .then(({ result: existed, status }) => {
         const $downloadModal = document.getElementById('downloadModal')
         const $btn = $downloadModal.querySelector('a.btn')
-        if (existed) {
-          $downloadModal.querySelector('h4').innerText = 'Запись есть в системе'
-          $downloadModal.querySelector('p').innerText = 'Вы можете скачать запись.'
-          $btn.innerHTML = `
-        <i class="material-icons">file_download</i>Скачать
-      `
-        } else if (status === 'PREPARING') {
+
+        function setPreparing() {
           $downloadModal.querySelector('h4').innerText = 'Запись обрабатывается'
           $downloadModal.querySelector('p').innerText = 'Запись уже обрабатывается и скоро будет доступна для скачивания. Вернитесь сюда чуточку позже.'
-          $btn.hidden = true;
-        } else {
+          $btn.style.display = 'none';
+        }
+
+        function setAbsent() {
           $downloadModal.querySelector('h4').innerText = 'Записи пока нет в системе'
           $downloadModal.querySelector('p').innerText = 'Вы не можете скачать запись, поскольку её ещё пока нет в нашей базе. Вы можете поставить запись на обработку. Обработка занимает примерно столько же, сколько длится сам вебинар.'
+          $btn.style.display = 'flex'
           $btn.innerHTML = `
             <i class="material-icons">file_download</i>Поставить на обработку
           `
+        }
+
+        function setExisted() {
+          $downloadModal.querySelector('h4').innerText = 'Запись есть в системе'
+          $downloadModal.querySelector('p').innerText = 'Вы можете скачать запись.'
+          $btn.style.display = 'flex'
+          $btn.innerHTML = `
+            <i class="material-icons">file_download</i>Скачать
+          `
+        }
+
+        if (existed) {
+          setExisted()
+        } else if (status === PREPARING) {
+          setPreparing()
+        } else {
+          setAbsent()
         }
 
         $btn.addEventListener('click', e => {
           e.preventDefault()
           fetch(`${HOST}?bbb_url=${window.location.href}`)
             .then(res => res.json())
-            .then(console.log)
+            .then(({status}) => {
+              console.log({status})
+              if (status === PREPARING) {
+                setPreparing()
+              }
+            })
             .catch(console.error)
         })
       })
