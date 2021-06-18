@@ -18,6 +18,8 @@ const sleep = ms => new Promise(resolve => setTimeout(() => resolve(), ms))
 
 app.use(cors())
 
+const validateURL = url => url.includes('playback/presentation/')
+
 app.get('/', async (req, res) => {
   try {
     const { bbb_url } = req.query
@@ -35,7 +37,10 @@ app.get('/', async (req, res) => {
     }
 
     if (checkIsExisted(bbb_url)) {
-      return res.download(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
+      console.log('The recording exists')
+      const p = path.join(__dirname, PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
+      console.log({p})
+      return res.download(p)
     }
 
     if (checkIsOnlyDirExisted(bbb_url)) {
@@ -59,7 +64,6 @@ app.get('/', async (req, res) => {
   }
 })
 
-const validateURL = url => url.contains('playback/presentation/')
 
 app.get('/check', (req, res) => {
   const { bbb_url } = req.query
@@ -100,8 +104,6 @@ function checkIsExisted(bbb_url) {
 const start = async (bbb_url) => {
   try {
     const browser = await puppeteer.launch()
-
-    // Check if no in db
     const page = await browser.newPage()
     await openBBB(page, bbb_url)
     await startWebinarVideo(page)
@@ -123,7 +125,7 @@ const start = async (bbb_url) => {
 async function recordScreen(outputDir, page, callbackDuringRecording = async () => { }) {
   const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
   const duration = Math.ceil(await getDuration(audioLocalSrc) * 1000)
-
+  console.log({duration})
   const recorder = new PuppeteerScreenRecorder(page)
   await recorder.start(`${outputDir}/video.mp4`);
 

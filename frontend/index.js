@@ -41,15 +41,27 @@ document.body.insertAdjacentHTML('afterbegin', html)
 
 const PREPARING = 'PREPARING'
 
+const $downloadModal = document.getElementById('downloadModal')
+const $btn = $downloadModal.querySelector('a.btn')
+const clickHandler = e => {
+  e.preventDefault()
+  fetch(`${HOST}?bbb_url=${window.location.href}`)
+    .then(res => res.json())
+    .then(({ status }) => {
+      console.log({ status })
+      if (status === PREPARING) {
+        setPreparing()
+      }
+    })
+    .catch(console.error)
+}
+
 const elems = document.querySelectorAll('.modal');
 const instances = M.Modal.init(elems, {
   onOpenStart() {
     fetch(`${HOST}/check?bbb_url=${window.location.href}`)
       .then(res => res.json())
       .then(({ result: existed, status }) => {
-        const $downloadModal = document.getElementById('downloadModal')
-        const $btn = $downloadModal.querySelector('a.btn')
-
         function setPreparing() {
           $downloadModal.querySelector('h4').innerText = 'Запись обрабатывается'
           $downloadModal.querySelector('p').innerText = 'Запись уже обрабатывается и скоро будет доступна для скачивания. Вернитесь сюда чуточку позже.'
@@ -69,6 +81,7 @@ const instances = M.Modal.init(elems, {
           $downloadModal.querySelector('h4').innerText = 'Запись есть в системе'
           $downloadModal.querySelector('p').innerText = 'Вы можете скачать запись.'
           $btn.style.display = 'flex'
+          $btn.href = `${HOST}?bbb_url=${window.location.href}`
           $btn.innerHTML = `
             <i class="material-icons">file_download</i>Скачать
           `
@@ -80,23 +93,15 @@ const instances = M.Modal.init(elems, {
           setPreparing()
         } else {
           setAbsent()
+          $btn.addEventListener('click', clickHandler)
         }
 
-        $btn.addEventListener('click', e => {
-          e.preventDefault()
-          fetch(`${HOST}?bbb_url=${window.location.href}`)
-            .then(res => res.json())
-            .then(({status}) => {
-              console.log({status})
-              if (status === PREPARING) {
-                setPreparing()
-              }
-            })
-            .catch(console.error)
-        })
+
       })
       .catch(console.error)
-
+  },
+  onCloseEnd() {
+    $btn.removeEventListener('click', clickHandler)
   }
 });
 
