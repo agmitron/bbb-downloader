@@ -19,10 +19,12 @@ function checkIsExisted(bbb_url, base = PROJECTS_DIR) {
   return fs.existsSync(p)
 }
 
-async function recordScreen(outputDir, page, callbackDuringRecording = async () => { }) {
-  const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
-  const duration = Math.ceil(await getDuration(audioLocalSrc) * 1000)
-  console.log({ duration })
+async function recordScreen(
+  outputDir,
+  page,
+  duration = downloadAudioAndGetDuration(page, outputDir),
+  callbackDuringRecording = async (page, recorder) => recorder
+) {
   const recorder = new PuppeteerScreenRecorder(page)
   await recorder.start(`${outputDir}/video.mp4`);
 
@@ -32,15 +34,18 @@ async function recordScreen(outputDir, page, callbackDuringRecording = async () 
     console.log(`${outputDir} is running for ${counter} seconds`)
   }, 10 * 1000)
 
-  await callbackDuringRecording()
+  await callbackDuringRecording(page, recorder)
 
-  await sleep(duration)
+  await sleep(await duration)
   await recorder.stop()
 
   clearInterval(interval)
 }
 
-
+async function downloadAudioAndGetDuration(page, outputDir) {
+  const audioLocalSrc = await downloadAudio(await getAudioRemoteSrc(page), outputDir)
+  return Math.ceil(await getDuration(audioLocalSrc) * 1000)
+}
 
 async function openBBB(page, bbb_url) {
   await page.goto(bbb_url)
@@ -54,10 +59,12 @@ async function startWebinarVideo(page) {
 }
 
 async function getAudioRemoteSrc(page) {
-  return await page.evaluate(() => {
-    const $audio = document.querySelector('.video-wrapper .vjs-tech')
+  const selector = '.video-wrapper .vjs-tech'
+  await page.waitForSelector(selector)
+  return await page.evaluate((selector) => {
+    const $audio = document.querySelector(selector)
     return $audio.src
-  })
+  }, selector)
 }
 
 async function downloadAudio(audioUrl, output) {
@@ -128,5 +135,7 @@ module.exports = {
   getDuration,
   PROJECTS_DIR,
   mergeVideoAndAudio,
-  validateURL
+  validateURL,
+  getAudioRemoteSrc,
+  sleep
 }
