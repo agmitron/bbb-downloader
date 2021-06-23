@@ -13,15 +13,14 @@ const {
   startWebinarVideo,
   createOutputDir,
   getLastPart,
-  mergeVideoAndAudio
+  mergeVideoAndAudio,
+  validateURL
 } = require('./helpers')
 
 const port = 3000
 app.listen(port, () => console.log(`App started on port ${port}`))
 
 app.use(cors())
-
-const validateURL = url => url.includes('playback/presentation/')
 
 app.get('/', async (req, res) => {
   try {

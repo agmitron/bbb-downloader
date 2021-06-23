@@ -9,13 +9,13 @@ const finalFileName = 'output.mkv'
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-function checkIsOnlyDirExisted(bbb_url) {
-  return fs.existsSync(path.join(PROJECTS_DIR, getLastPart(bbb_url)))
-    && !fs.existsSync(path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName))
+function checkIsOnlyDirExisted(bbb_url, base = PROJECTS_DIR) {
+  return fs.existsSync(path.join(base, getLastPart(bbb_url)))
+    && !fs.existsSync(path.join(base, getLastPart(bbb_url), finalFileName))
 }
 
-function checkIsExisted(bbb_url) {
-  const p = path.join(PROJECTS_DIR, getLastPart(bbb_url), finalFileName)
+function checkIsExisted(bbb_url, base = PROJECTS_DIR) {
+  const p = path.join(base, getLastPart(bbb_url), finalFileName)
   return fs.existsSync(p)
 }
 
@@ -114,6 +114,8 @@ function mergeVideoAndAudio(outputDir, videoSrc = `${outputDir}/video.mp4`, audi
   })
 }
 
+const validateURL = url => url.includes('playback/presentation/')
+
 module.exports = {
   checkIsOnlyDirExisted,
   checkIsExisted,
@@ -123,5 +125,8 @@ module.exports = {
   downloadAudio,
   createOutputDir,
   getLastPart,
-  getDuration
+  getDuration,
+  PROJECTS_DIR,
+  mergeVideoAndAudio,
+  validateURL
 }
